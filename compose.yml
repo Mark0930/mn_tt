@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:17.4
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: events
+    ports:
+      - "5432:5432"
+    volumes:
+      - data_sql:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+
+  app:
+    build:
+      context: src
+      dockerfile: Dockerfile
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:mysecretpassword@db:5432/events
+    volumes:
+      - ./src:/app
+
+volumes:
+  data_sql:

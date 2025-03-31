@@ -1,14 +1,33 @@
 from fastapi import HTTPException, Depends
-from src.schema import EventPost, EventResponse
+from schema import EventPost, EventResponse
 from starlette import status
 from typing import List
-from src.models import UserEvent
+from models import UserEvent
 from sqlalchemy.orm import Session
-from src.models import UserEvent
+from models import UserEvent
 from fastapi import FastAPI
-from database import get_db
+from database import get_db, Base, engine
+from contextlib import asynccontextmanager
+import time
+from sqlalchemy.exc import OperationalError
 
 app = FastAPI()
+
+# Retry database connection and create tables on startup
+@app.on_event("startup")
+def on_startup():
+    retries = 5
+    while retries > 0:
+        try:
+            # Attempt to connect and create tables
+            Base.metadata.create_all(bind=engine)
+            break
+        except OperationalError:
+            retries -= 1
+            time.sleep(2)  # Wait for 2 seconds before retrying
+    else:
+        raise Exception("Database connection failed after multiple retries.")
+    
 
 @app.post("/event", response_model=EventResponse)
 async def handle_event(event: EventPost, db: Session = Depends(get_db)):
