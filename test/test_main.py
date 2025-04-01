@@ -8,7 +8,6 @@ from src.database import get_db
 
 client = TestClient(app)
 
-# Mock data for tests
 def mock_query_withdraws():
     return [
         UserEvent(user_id=1, type="withdraw", amount=50, timestamp=10),
@@ -18,74 +17,105 @@ def mock_query_withdraws():
 
 def mock_query_deposits():
     return [
-        UserEvent(user_id=1, type="deposit", amount=50, timestamp=10),
-        UserEvent(user_id=1, type="deposit", amount=100, timestamp=20),
-        UserEvent(user_id=1, type="deposit", amount=150, timestamp=30),
+        UserEvent(user_id=1, type="deposit", amount=50, timestamp=40),
+        UserEvent(user_id=1, type="deposit", amount=100, timestamp=50),
+        UserEvent(user_id=1, type="deposit", amount=150, timestamp=60),
     ]
 
 def mock_query_accumulative_deposits():
     return [
-        UserEvent(user_id=1, type="deposit", amount=100, timestamp=10),
-        UserEvent(user_id=1, type="deposit", amount=150, timestamp=20),
+        UserEvent(user_id=1, type="deposit", amount=100, timestamp=70),
+        UserEvent(user_id=1, type="deposit", amount=150, timestamp=80),
     ]
 
-# Mock the database session dependency
 @pytest.fixture
 def mock_db_session():
     mock_session = MagicMock()
     yield mock_session
 
-# Override the FastAPI dependency
 @pytest.fixture(autouse=True)
 def override_get_db(mock_db_session):
     app.dependency_overrides[get_db] = lambda: mock_db_session
 
-# Test Rule: Code 30 - 3 consecutive withdraws
 def test_check_three_consecutive_withdraws(mock_db_session):
     mock_db_session.query().filter().order_by().limit().all.return_value = mock_query_withdraws()
-
     result = check_three_consecutive_withdraws(mock_db_session, user_id=1)
     assert result is True
 
-# Test Rule: Code 300 - 3 consecutive increasing deposits
 def test_check_three_consecutive_increasing_deposits(mock_db_session):
     mock_db_session.query().filter().order_by().all.return_value = mock_query_deposits()
-
     result = check_three_consecutive_increasing_deposits(mock_db_session, user_id=1)
     assert result is True
 
-# Test Rule: Code 123 - Accumulative deposit amount over 30 seconds > 200
 def test_check_accumulative_deposit_over_200(mock_db_session):
     mock_db_session.query().filter().all.return_value = mock_query_accumulative_deposits()
-
     result = check_accumulative_deposit_over_200(mock_db_session, user_id=1, current_timestamp=40)
     assert result is True
 
-# Test Rule: Code 1100 - A withdraw amount over 100
-def test_withdraw_over_100(mock_db_session):
-    mock_db_session.add = MagicMock()  # Mock the add method
-    mock_db_session.commit = MagicMock()  # Mock the commit method
+from unittest.mock import patch
 
-    event = EventPost(type="withdraw", amount="150.00", user_id=1, t=10)
-    response = client.post("/event", json=event.model_dump())
-    assert response.status_code == 200
-    assert 1100 in response.json()["alert_codes"]
+def test_event_endpoint_1100(mock_db_session):
+    with patch("src.main.check_three_consecutive_withdraws", return_value=False):
+        mock_db_session.add = MagicMock()
+        mock_db_session.commit = MagicMock()
+        event = EventPost(type="withdraw", amount="150.00", user_id=1, t=100)
+        response = client.post("/event", json=event.model_dump())
+        assert response.status_code == 200
+        assert response.json() == {
+            "alert": True,
+            "alert_codes": [1100],
+            "user_id": 1,
+        }
 
-# Test Endpoint: /event
-def test_event_endpoint(mock_db_session):
-    mock_db_session.query().filter().order_by().all.side_effect = [
-        mock_query_withdraws(),  # For Rule: Code 30
-        mock_query_deposits(),  # For Rule: Code 300
-        mock_query_accumulative_deposits(),  # For Rule: Code 123
-    ]
-    mock_db_session.add = MagicMock()  # Mock the add method
-    mock_db_session.commit = MagicMock()  # Mock the commit method
+def test_event_endpoint_30(mock_db_session):
+    with patch("src.main.check_three_consecutive_withdraws", return_value=True):
+        mock_db_session.add = MagicMock()
+        mock_db_session.commit = MagicMock()
+        event = EventPost(type="withdraw", amount="150.00", user_id=1, t=100)
+        response = client.post("/event", json=event.model_dump())
+        assert response.status_code == 200
+        assert response.json() == {
+            "alert": True,
+            "alert_codes": [1100, 30],
+            "user_id": 1,
+        }
 
-    event = EventPost(type="withdraw", amount="150.00", user_id=1, t=10)
-    response = client.post("/event", json=event.model_dump())
-    assert response.status_code == 200
-    assert response.json() == {
-        "alert": True,
-        "alert_codes": [1100, 300],
-        "user_id": 1,
-    }
+def test_event_endpoint_300(mock_db_session):
+    with patch("src.main.check_three_consecutive_increasing_deposits", return_value=True):
+        mock_db_session.add = MagicMock()
+        mock_db_session.commit = MagicMock()
+        event = EventPost(type="deposit", amount="150.00", user_id=1, t=100)
+        response = client.post("/event", json=event.model_dump())
+        assert response.status_code == 200
+        assert response.json() == {
+            "alert": True,
+            "alert_codes": [300],
+            "user_id": 1,
+        }
+
+def test_event_endpoint_123(mock_db_session):
+    with patch("src.main.check_three_consecutive_increasing_deposits", return_value=True), \
+         patch("src.main.check_accumulative_deposit_over_200", return_value=True):
+        mock_db_session.add = MagicMock()
+        mock_db_session.commit = MagicMock()
+        event = EventPost(type="deposit", amount="150.00", user_id=1, t=100)
+        response = client.post("/event", json=event.model_dump())
+        assert response.status_code == 200
+        assert response.json() == {
+            "alert": True,
+            "alert_codes": [300, 123],
+            "user_id": 1,
+        }
+
+def test_event_endpoint_no_alerts(mock_db_session):
+    with patch("src.main.check_three_consecutive_withdraws", return_value=False):
+        mock_db_session.add = MagicMock()
+        mock_db_session.commit = MagicMock()
+        event = EventPost(type="withdraw", amount="50.00", user_id=1, t=10)
+        response = client.post("/event", json=event.model_dump())
+        assert response.status_code == 200
+        assert response.json() == {
+            "alert": False,
+            "alert_codes": [],
+            "user_id": 1,
+        }

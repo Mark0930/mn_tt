@@ -10,18 +10,16 @@ from sqlalchemy.exc import OperationalError
 
 app = FastAPI()
 
-# Retry database connection and create tables on startup
 @app.on_event("startup")
 def on_startup():
     retries = 5
     while retries > 0:
         try:
-            # Attempt to connect and create tables
             Base.metadata.create_all(bind=engine)
             break
         except OperationalError:
             retries -= 1
-            time.sleep(2)  # Wait for 2 seconds before retrying
+            time.sleep(2)
     else:
         raise Exception("Database connection failed after multiple retries.")
     
@@ -37,24 +35,25 @@ async def handle_event(event: EventPost, db: Session = Depends(get_db)):
     db.add(new_event)
     db.commit()
 
-    # Initialize alert codes
     alert_codes = []
 
-    # Rule: Code 1100 - A withdraw amount over 100
-    if event.type == "withdraw" and amount > 100:
-        alert_codes.append(1100)
+    if event.type == "withdraw":
+        # Rule: Code 1100 - A withdraw amount over 100
+        if  amount > 100:
+            alert_codes.append(1100)
 
-    # Rule: Code 30 - 3 consecutive withdraws
-    if check_three_consecutive_withdraws(db, user_id):
-        alert_codes.append(30)
+        # Rule: Code 30 - 3 consecutive withdraws
+        if check_three_consecutive_withdraws(db, user_id):
+            alert_codes.append(30)
 
-    # Rule: Code 300 - 3 consecutive increasing deposits
-    if check_three_consecutive_increasing_deposits(db, user_id):
-        alert_codes.append(300)
+    elif event.type == "deposit":
+        # Rule: Code 300 - 3 consecutive increasing deposits
+        if check_three_consecutive_increasing_deposits(db, user_id):
+            alert_codes.append(300)
 
-    # Rule: Code 123 - Accumulative deposit amount over 30 seconds > 200
-    if check_accumulative_deposit_over_200(db, user_id, timestamp):
-        alert_codes.append(123)
+        # Rule: Code 123 - Accumulative deposit amount over 30 seconds > 200
+        if check_accumulative_deposit_over_200(db, user_id, timestamp):
+            alert_codes.append(123)
 
     # Determine if alert is true
     alert = bool(alert_codes)
