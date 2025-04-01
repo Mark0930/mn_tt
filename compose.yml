@@ -27,7 +27,5 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:mysecretpassword@db:5432/events
-    volumes:
-      - ./src:/app/src
 volumes:
   data_sql:
