@@ -1,20 +1,32 @@
-from pydantic import BaseModel, Field
-from typing import List, Literal
-from enum import Enum
+from pydantic import BaseModel, Field, AfterValidator
+from typing import List, Literal, Annotated
+from enum import IntEnum
+from decimal import Decimal
 
-class AlertCode(int, Enum):
+class AlertCode(IntEnum):
     WITHDRAW_OVER_100 = 1100
-    THREE_CONSECUTIVE_WITHDRAWS = 30
-    THREE_CONSECUTIVE_INCREASING_DEPOSITS = 300
-    ACCUMULATIVE_DEPOSIT_OVER_200 = 123
+    THREE_WITHDRAWS = 30
+    INCREASING_DEPOSITS = 300
+    DEPOSIT_OVER_200 = 123
+
+def validate_event_type(value: str) -> str:
+    if value not in ['deposit', 'withdraw']:
+        raise ValueError('Event type must be either deposit or withdraw')
+    return value
+
+def validate_amount(value: str) -> str:
+    amount = Decimal(value)
+    if amount <= 0:
+        raise ValueError('Amount must be positive')
+    return value
 
 class EventPost(BaseModel):
-    type: Literal["deposit", "withdraw"]
-    amount: str
+    type: Annotated[str, AfterValidator(validate_event_type)]
+    amount: Annotated[str, AfterValidator(validate_amount)]
     user_id: int
     t: int
 
 class EventResponse(BaseModel):
     alert: bool
-    alert_codes: List[AlertCode] = Field(default_factory=list)
+    alert_codes: List[int] = Field(default_factory=list)
     user_id: int

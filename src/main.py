@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from src.schema import EventPost, EventResponse
 from src.models import UserEvent
 from sqlalchemy.orm import Session
@@ -25,15 +25,22 @@ def on_startup():
     
 
 @app.post("/event", response_model=EventResponse)
-async def handle_event(event: EventPost, db: Session = Depends(get_db)):
+async def handle_event(event: EventPost, db: Session = Depends(get_db)) -> EventResponse:
     user_id = event.user_id
     amount = float(event.amount)
     timestamp = event.t
 
-    # Save the event to the database
-    new_event = UserEvent(user_id=user_id, type=event.type, amount=amount, timestamp=timestamp)
-    db.add(new_event)
-    db.commit()
+    try:
+        # Save the event to the database
+        new_event = UserEvent(user_id=event.user_id, type=event.type, amount=float(event.amount), timestamp=event.t)
+        db.add(new_event)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process event"
+        )
 
     alert_codes = []
 
