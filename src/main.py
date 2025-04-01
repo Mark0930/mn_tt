@@ -1,12 +1,9 @@
-from fastapi import HTTPException, Depends
-from schema import EventPost, EventResponse
-from starlette import status
-from typing import List
-from models import UserEvent
+from fastapi import Depends
+from src.schema import EventPost, EventResponse
+from src.models import UserEvent
 from sqlalchemy.orm import Session
-from models import UserEvent
 from fastapi import FastAPI
-from database import get_db, Base, engine
+from src.database import get_db, Base, engine
 from contextlib import asynccontextmanager
 import time
 from sqlalchemy.exc import OperationalError

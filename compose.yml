@@ -17,7 +17,7 @@ services:
 
   app:
     build:
-      context: src
+      context: ./src
       dockerfile: Dockerfile
     container_name: fastapi_app
     ports:
@@ -28,7 +28,6 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:mysecretpassword@db:5432/events
     volumes:
-      - ./src:/app
-
+      - ./src:/app/src
 volumes:
   data_sql:
