@@ -5,6 +5,7 @@ from src.main import app, check_three_consecutive_withdraws, check_three_consecu
 from src.schema import EventPost
 from src.models import UserEvent
 from src.database import get_db
+from unittest.mock import patch
 
 client = TestClient(app)
 
@@ -51,8 +52,6 @@ def test_check_accumulative_deposit_over_200(mock_db_session):
     mock_db_session.query().filter().all.return_value = mock_query_accumulative_deposits()
     result = check_accumulative_deposit_over_200(mock_db_session, user_id=1, current_timestamp=40)
     assert result is True
-
-from unittest.mock import patch
 
 def test_event_endpoint_1100(mock_db_session):
     with patch("src.main.check_three_consecutive_withdraws", return_value=False):

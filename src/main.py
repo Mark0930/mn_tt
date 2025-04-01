@@ -37,29 +37,24 @@ async def handle_event(event: EventPost, db: Session = Depends(get_db)):
 
     alert_codes = []
 
-    if event.type == "withdraw":
-        # Rule: Code 1100 - A withdraw amount over 100
-        if  amount > 100:
-            alert_codes.append(1100)
+    rules = {
+        "withdraw": [
+            (lambda amount, **kwargs: amount > 100, 1100),  # Rule: Code 1100
+            (lambda user_id, **kwargs: check_three_consecutive_withdraws(db, user_id), 30),  # Rule: Code 30
+        ],
+        "deposit": [
+            (lambda user_id, **kwargs: check_three_consecutive_increasing_deposits(db, user_id), 300),  # Rule: Code 300
+            (lambda user_id, timestamp, **kwargs: check_accumulative_deposit_over_200(db, user_id, timestamp), 123),  # Rule: Code 123
+        ],
+    }
 
-        # Rule: Code 30 - 3 consecutive withdraws
-        if check_three_consecutive_withdraws(db, user_id):
-            alert_codes.append(30)
-
-    elif event.type == "deposit":
-        # Rule: Code 300 - 3 consecutive increasing deposits
-        if check_three_consecutive_increasing_deposits(db, user_id):
-            alert_codes.append(300)
-
-        # Rule: Code 123 - Accumulative deposit amount over 30 seconds > 200
-        if check_accumulative_deposit_over_200(db, user_id, timestamp):
-            alert_codes.append(123)
-
-    # Determine if alert is true
-    alert = bool(alert_codes)
+    # Apply rules based on event type
+    for rule, code in rules.get(event.type, []):
+        if rule(amount=amount, user_id=user_id, timestamp=timestamp):
+            alert_codes.append(code)
 
     # Return the response
-    return EventResponse(alert=alert, alert_codes=alert_codes, user_id=user_id)
+    return EventResponse(alert=bool(alert_codes), alert_codes=alert_codes, user_id=user_id)
 
 
 def check_three_consecutive_withdraws(session: Session, user_id: int) -> bool:
