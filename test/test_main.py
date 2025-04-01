@@ -40,12 +40,12 @@ def override_get_db(mock_db_session):
 
 def test_check_three_consecutive_withdraws(mock_db_session):
     mock_db_session.query().filter().order_by().limit().all.return_value = mock_query_withdraws()
-    result = check_three_consecutive_withdraws(mock_db_session, user_id=1)
+    result = check_three_consecutive_withdraws(mock_db_session, user_id=1, timestamp=40)
     assert result is True
 
 def test_check_three_consecutive_increasing_deposits(mock_db_session):
     mock_db_session.query().filter().order_by().all.return_value = mock_query_deposits()
-    result = check_three_consecutive_increasing_deposits(mock_db_session, user_id=1)
+    result = check_three_consecutive_increasing_deposits(mock_db_session, user_id=1, timestamp=70)
     assert result is True
 
 def test_check_accumulative_deposit_over_200(mock_db_session):
