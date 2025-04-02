@@ -30,3 +30,4 @@ class EventResponse(BaseModel):
     alert: bool
     alert_codes: List[int] = Field(default_factory=list)
     user_id: int
+    

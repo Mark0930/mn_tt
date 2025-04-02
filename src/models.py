@@ -15,3 +15,4 @@ class UserEvent(Base):
 
     def __repr__(self):
         return f"<UserEvent(user_id={self.user_id}, type={self.type}, amount={self.amount}, timestamp={self.timestamp})>"
+    

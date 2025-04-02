@@ -118,3 +118,4 @@ def test_event_endpoint_no_alerts(mock_db_session):
             "alert_codes": [],
             "user_id": 1,
         }
+        
